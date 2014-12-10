@@ -117,6 +117,19 @@ public class IndexQuery<T extends Index> {
     }
 
     /**
+     * Sets a route of which shard to execute the search request against.
+     * Only use this if path is already set in indexMapping
+     * @param route
+     *
+     * @return
+     */
+    public IndexQuery<T> setRoute(String route) {
+        this.route = route;
+
+        return this;
+    }
+
+    /**
      * Adds a facet
      *
      * @param facet
