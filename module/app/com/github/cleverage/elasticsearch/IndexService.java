@@ -1,39 +1,41 @@
 package com.github.cleverage.elasticsearch;
 
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequestBuilder;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
+import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteRequestBuilder;
 import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.action.get.GetRequestBuilder;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.get.MultiGetItemResponse;
-import org.elasticsearch.action.get.MultiGetRequestBuilder;
-import org.elasticsearch.action.get.MultiGetResponse;
+import org.elasticsearch.action.get.*;
 import org.elasticsearch.action.index.IndexAction;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.percolate.PercolateAction;
-import org.elasticsearch.action.percolate.PercolateRequestBuilder;
-import org.elasticsearch.action.percolate.PercolateResponse;
+import org.elasticsearch.action.support.WriteRequest.RefreshPolicy;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
 import org.elasticsearch.action.update.UpdateResponse;
-import org.elasticsearch.client.AdminClient;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.IndicesAdminClient;
-import org.elasticsearch.client.Requests;
+import org.elasticsearch.client.*;
+import org.elasticsearch.client.indices.GetIndexRequest;
+import org.elasticsearch.client.indices.PutMappingRequest;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.script.ScriptType;
 import play.Logger;
 import play.libs.F;
 
@@ -56,12 +58,13 @@ public abstract class IndexService {
      *
      * @return
      */
-    public static IndexRequestBuilder getIndexRequest(IndexQueryPath indexPath, String id, Index indexable) {
-        return new IndexRequestBuilder(IndexClient.client, IndexAction.INSTANCE)
+    /*public static IndexRequestBuilder getIndexRequest(IndexQueryPath indexPath, String id, Index indexable) {
+        *//*return new IndexRequestBuilder(IndexClient.client, IndexAction.INSTANCE)
                 .setType(indexPath.type)
                 .setId(id)
-                .setSource(indexable.toIndex());
-    }
+                .setSource(indexable.toIndex());*//*
+        //IndexRequest request = new IndexRequest(indexPath.index, id);
+    }*/
 
     /**
      * index from an request
@@ -71,7 +74,14 @@ public abstract class IndexService {
      */
     public static IndexResponse index(IndexRequestBuilder requestBuilder) {
 
-        IndexResponse indexResponse = requestBuilder.execute().actionGet();
+        //IndexResponse indexResponse = requestBuilder.execute().actionGet();
+        //transportClient.index(indexRequest).actionGet();
+        IndexResponse indexResponse = null;
+        try {
+            indexResponse = IndexClient.client.index(requestBuilder.request(), RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         if (Logger.isDebugEnabled()) {
             Logger.debug("ElasticSearch : Index " + requestBuilder.toString());
@@ -86,9 +96,13 @@ public abstract class IndexService {
      * @param indexable
      * @return
      */
-    private static IndexRequestBuilder getIndexRequestBuilder(IndexQueryPath indexPath, String id, Index indexable) {
-        return IndexClient.client.prepareIndex(indexPath.index, indexPath.type, id)
-                .setSource(indexable.toIndex());
+    private static IndexResponse getIndexRequestBuilder(IndexQueryPath indexPath, String id, Index indexable) throws IOException {
+        IndexRequest request = new IndexRequest(indexPath.index);
+        IndexResponse response = IndexClient.client.index(request, RequestOptions.DEFAULT);
+        return response;
+
+        /*return IndexClient.client.prepareIndex(indexPath.index, indexPath.type, id)
+                .setSource(indexable.toIndex());*/
     }
 
     /**
@@ -98,10 +112,12 @@ public abstract class IndexService {
      * @param indexable
      * @return
      */
-    public static IndexResponse index(IndexQueryPath indexPath, String id, Index indexable) {
-        IndexResponse indexResponse = getIndexRequestBuilder(indexPath, id, indexable)
+    public static IndexResponse index(IndexQueryPath indexPath, String id, Index indexable) throws IOException {
+        /*IndexResponse indexResponse = getIndexRequestBuilder(indexPath, id, indexable)
                 .execute()
-                .actionGet();
+                .actionGet();*/
+        IndexRequest request = new IndexRequest(indexPath.index);
+        IndexResponse indexResponse = IndexClient.client.index(request, RequestOptions.DEFAULT);
         if (Logger.isDebugEnabled()) {
             Logger.debug("ElasticSearch : Index : " + indexResponse.getIndex() + "/" + indexResponse.getType() + "/" + indexResponse.getId() + " from " + indexable.toString());
         }
@@ -116,7 +132,21 @@ public abstract class IndexService {
      * @return
      */
     public static F.Promise<IndexResponse> indexAsync(IndexQueryPath indexPath, String id, Index indexable) {
-        return indexAsync(getIndexRequestBuilder(indexPath, id, indexable));
+        IndexRequest request = new IndexRequest(indexPath.index, id);
+        F.Promise<IndexResponse> f = null;
+        IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, new ActionListener<IndexResponse>() {
+            @Override
+            public void onResponse(IndexResponse indexResponse) {
+                f.onRedeem((F.Callback<IndexResponse>) indexResponse);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                f.onFailure((F.Callback<Throwable>) e.getCause());
+            }
+        });
+        return f;
+        //return indexAsync(getIndexRequestBuilder(indexPath, id, indexable));
     }
 
     /**
@@ -135,8 +165,9 @@ public abstract class IndexService {
      * @param json
      * @return
      */
-    public static IndexResponse index(IndexQueryPath indexPath, String id, String json) {
-        return getIndexRequestBuilder(indexPath, id, json).execute().actionGet();
+    public static IndexResponse index(IndexQueryPath indexPath, String id, String json) throws IOException {
+        //return getIndexRequestBuilder(indexPath, id, json).execute().actionGet();
+        return getIndexRequestBuilder(indexPath, id, json);
     }
 
     /**
@@ -146,8 +177,11 @@ public abstract class IndexService {
      * @param json
      * @return
      */
-    public static IndexRequestBuilder getIndexRequestBuilder(IndexQueryPath indexPath, String id, String json) {
-        return IndexClient.client.prepareIndex(indexPath.index, indexPath.type, id).setSource(json);
+    public static IndexResponse getIndexRequestBuilder(IndexQueryPath indexPath, String id, String json) throws IOException {
+        IndexRequest request = new IndexRequest(indexPath.index);
+        IndexResponse indexResponse = IndexClient.client.index(request, RequestOptions.DEFAULT);
+        return  indexResponse;
+        //return IndexClient.client.prepareIndex(indexPath.index, indexPath.type, id).setSource(json);
     }
 
     /**
@@ -156,7 +190,7 @@ public abstract class IndexService {
      * @param indexables
      * @return
      */
-    private static BulkRequestBuilder getBulkRequestBuilder(IndexQueryPath indexPath, List<? extends Index> indexables) {
+    /*private static BulkRequestBuilder getBulkRequestBuilder(IndexQueryPath indexPath, List<? extends Index> indexables) {
         BulkRequestBuilder bulkRequestBuilder = IndexClient.client.prepareBulk();
         for (Index indexable : indexables) {
             bulkRequestBuilder.add(Requests.indexRequest(indexPath.index)
@@ -165,7 +199,7 @@ public abstract class IndexService {
                     .source(indexable.toIndex()));
         }
         return bulkRequestBuilder;
-    }
+    }*/
 
     /**
      * Bulk index a list of indexables
@@ -173,9 +207,12 @@ public abstract class IndexService {
      * @param indexables
      * @return
      */
-    public static BulkResponse indexBulk(IndexQueryPath indexPath, List<? extends Index> indexables) {
-        BulkRequestBuilder bulkRequestBuilder = getBulkRequestBuilder(indexPath, indexables);
-        return bulkRequestBuilder.execute().actionGet();
+    public static BulkResponse indexBulk(IndexQueryPath indexPath, List<? extends Index> indexables) throws IOException {
+        BulkRequest request = new BulkRequest(indexPath.index);
+        BulkResponse response = IndexClient.client.bulk(request, RequestOptions.DEFAULT);
+        return response;
+        /*BulkRequestBuilder bulkRequestBuilder = getBulkRequestBuilder(indexPath, indexables);
+        return bulkRequestBuilder.execute().actionGet();*/
     }
 
     /**
@@ -185,7 +222,21 @@ public abstract class IndexService {
      * @return
      */
     public static F.Promise<BulkResponse> indexBulkAsync(IndexQueryPath indexPath, List<? extends Index> indexables) {
-        return AsyncUtils.executeAsyncJava(getBulkRequestBuilder(indexPath, indexables));
+        BulkRequest request = new BulkRequest(indexPath.index);
+        F.Promise<BulkResponse> f = null;
+        IndexClient.client.bulkAsync(request, RequestOptions.DEFAULT, new ActionListener<BulkResponse>() {
+            @Override
+            public void onResponse(BulkResponse bulkResponse) {
+                f.onRedeem((F.Callback<BulkResponse>) bulkResponse);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                f.onFailure((F.Callback<Throwable>) e.getCause());
+            }
+        });
+        return f;
+        //return AsyncUtils.executeAsyncJava(getBulkRequestBuilder(indexPath, indexables));
     }
 
     /**
@@ -194,12 +245,13 @@ public abstract class IndexService {
      * @param jsonMap
      * @return
      */
-    public static BulkRequestBuilder getBulkRequestBuilder(IndexQueryPath indexPath, Map<String, String> jsonMap) {
-        BulkRequestBuilder bulkRequestBuilder = IndexClient.client.prepareBulk();
+    public static BulkRequest getBulkRequestBuilder(IndexQueryPath indexPath, Map<String, String> jsonMap) {
+        //BulkRequestBuilder bulkRequestBuilder = IndexClient.client.prepareBulk();
+        BulkRequest bulkRequest = new BulkRequest();
         for (String id : jsonMap.keySet()) {
-            bulkRequestBuilder.add(Requests.indexRequest(indexPath.index).type(indexPath.type).id(id).source(jsonMap.get(id)));
+            bulkRequest.add(Requests.indexRequest(indexPath.index).id(id).source(jsonMap.get(id)));
         }
-        return bulkRequestBuilder;
+        return bulkRequest;
     }
 
     /**
@@ -215,13 +267,13 @@ public abstract class IndexService {
      * Create a BulkRequestBuilder for a List of IndexRequestBuilder
      * @return
      */
-    public static BulkRequestBuilder getBulkRequestBuilder(Collection<IndexRequestBuilder> indexRequestBuilder) {
+    /*public static BulkRequestBuilder getBulkRequestBuilder(Collection<IndexRequestBuilder> indexRequestBuilder) {
         BulkRequestBuilder bulkRequestBuilder = IndexClient.client.prepareBulk();
         for (IndexRequestBuilder requestBuilder : indexRequestBuilder) {
             bulkRequestBuilder.add(requestBuilder);
         }
         return bulkRequestBuilder;
-    }
+    }*/
 
     /**
      * Bulk index a Map of json documents.
@@ -230,9 +282,12 @@ public abstract class IndexService {
      * @param jsonMap
      * @return
      */
-    public static BulkResponse indexBulk(IndexQueryPath indexPath, Map<String, String> jsonMap) {
-        BulkRequestBuilder bulkRequestBuilder = getBulkRequestBuilder(indexPath, jsonMap);
-        return bulkRequestBuilder.execute().actionGet();
+    public static BulkResponse indexBulk(IndexQueryPath indexPath, Map<String, String> jsonMap) throws IOException {
+        /*BulkRequestBuilder bulkRequestBuilder = getBulkRequestBuilder(indexPath, jsonMap);
+        return bulkRequestBuilder.execute().actionGet();*/
+        BulkRequest request = new BulkRequest(indexPath.index);
+        BulkResponse response = IndexClient.client.bulk(request, RequestOptions.DEFAULT);
+        return response;
     }
 
     /**
@@ -241,14 +296,14 @@ public abstract class IndexService {
      * @param id
      * @return
      */
-    public static UpdateRequestBuilder getUpdateRequestBuilder(IndexQueryPath indexPath,
+    /*public static UpdateRequestBuilder getUpdateRequestBuilder(IndexQueryPath indexPath,
                                                                String id,
                                                                Map<String, Object> updateFieldValues,
-                                                               String updateScript, ScriptService.ScriptType scriptType,
+                                                               String updateScript, ScriptType scriptType,
                                                                String lang) {
         return IndexClient.client.prepareUpdate(indexPath.index, indexPath.type, id)
-                .setScript(new Script(updateScript, scriptType, lang, updateFieldValues));
-    }
+                .setScript(new Script(scriptType, updateScript, lang, updateFieldValues));
+    }*/
 
     /**
      * Update a document in the index
@@ -261,11 +316,14 @@ public abstract class IndexService {
     public static UpdateResponse update(IndexQueryPath indexPath,
                                         String id,
                                         Map<String, Object> updateFieldValues,
-                                        String updateScript, ScriptService.ScriptType scriptType,
-                                        String lang) {
-        return getUpdateRequestBuilder(indexPath, id, updateFieldValues, updateScript, scriptType, lang)
+                                        String updateScript, ScriptType scriptType,
+                                        String lang) throws IOException {
+        /*return getUpdateRequestBuilder(indexPath, id, updateFieldValues, updateScript, scriptType, lang)
                 .execute()
-                .actionGet();
+                .actionGet();*/
+        UpdateRequest request = new UpdateRequest(indexPath.index, id);
+        UpdateResponse response = IndexClient.client.update(request, RequestOptions.DEFAULT);
+        return  response;
     }
 
     /**
@@ -279,9 +337,23 @@ public abstract class IndexService {
     public static F.Promise<UpdateResponse> updateAsync(IndexQueryPath indexPath,
                                                         String id,
                                                         Map<String, Object> updateFieldValues,
-                                                        String updateScript, ScriptService.ScriptType scriptType,
+                                                        String updateScript, ScriptType scriptType,
                                                         String lang) {
-        return updateAsync(getUpdateRequestBuilder(indexPath, id, updateFieldValues, updateScript, scriptType, lang));
+        UpdateRequest request = new UpdateRequest(indexPath.index, id);
+        F.Promise<UpdateResponse> f = null;
+        IndexClient.client.updateAsync(request, RequestOptions.DEFAULT,  new ActionListener<UpdateResponse>() {
+            @Override
+            public void onResponse(UpdateResponse updateResponse) {
+                f.onRedeem((F.Callback<UpdateResponse>) updateResponse);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                f.onFailure((F.Callback<Throwable>) e.getCause());
+            }
+        });
+        return f;
+        //return updateAsync(getUpdateRequestBuilder(indexPath, id, updateFieldValues, updateScript, scriptType, lang));
     }
 
     /**
@@ -299,8 +371,16 @@ public abstract class IndexService {
      * @param id
      * @return
      */
-    public static DeleteRequestBuilder getDeleteRequestBuilder(IndexQueryPath indexPath, String id) {
-        return IndexClient.client.prepareDelete(indexPath.index, indexPath.type, id);
+    public static DeleteResponse getDeleteRequestBuilder(IndexQueryPath indexPath, String id) {
+        DeleteRequest request = new DeleteRequest(indexPath.index, id);
+        DeleteResponse response = null;
+        try {
+            response = IndexClient.client.delete(request, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+        //return IndexClient.client.prepareDelete(indexPath.index, indexPath.type, id);
     }
 
     /**
@@ -309,7 +389,21 @@ public abstract class IndexService {
      * @return
      */
     public static F.Promise<DeleteResponse> deleteAsync(IndexQueryPath indexPath, String id) {
-        return AsyncUtils.executeAsyncJava(getDeleteRequestBuilder(indexPath, id));
+        DeleteRequest request = new DeleteRequest(indexPath.index, id);
+        F.Promise<DeleteResponse> f = null;
+        IndexClient.client.deleteAsync(request, RequestOptions.DEFAULT, new ActionListener<DeleteResponse>() {
+            @Override
+            public void onResponse(DeleteResponse deleteResponse) {
+                f.onRedeem((F.Callback<DeleteResponse>) deleteResponse);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                f.onFailure((F.Callback<Throwable>) e.getCause());
+            }
+        });
+        return f;
+        //return AsyncUtils.executeAsyncJava(getDeleteRequestBuilder(indexPath, id));
     }
 
     /**
@@ -318,9 +412,16 @@ public abstract class IndexService {
      * @return
      */
     public static DeleteResponse delete(IndexQueryPath indexPath, String id) {
-        DeleteResponse deleteResponse = getDeleteRequestBuilder(indexPath, id)
+        /*DeleteResponse deleteResponse = getDeleteRequestBuilder(indexPath, id)
                 .execute()
-                .actionGet();
+                .actionGet();*/
+        DeleteRequest request = new DeleteRequest(indexPath.index, id);
+        DeleteResponse deleteResponse = null;
+        try {
+            deleteResponse = IndexClient.client.delete(request, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         if (Logger.isDebugEnabled()) {
             Logger.debug("ElasticSearch : Delete " + deleteResponse.toString());
@@ -335,9 +436,9 @@ public abstract class IndexService {
      * @param id
      * @return
      */
-    public static GetRequestBuilder getGetRequestBuilder(IndexQueryPath indexPath, String id) {
+    /*public static GetRequestBuilder getGetRequestBuilder(IndexQueryPath indexPath, String id) {
         return IndexClient.client.prepareGet(indexPath.index, indexPath.type, id);
-    }
+    }*/
 
     /**
      * Create a MultiGetRequestBuilder
@@ -346,12 +447,13 @@ public abstract class IndexService {
      * @return
      */
 
-    public static MultiGetRequestBuilder getMultiGetRequestBuilder(IndexQueryPath indexPath, Collection<String> ids) {
-        MultiGetRequestBuilder multiGetRequestBuilder = IndexClient.client.prepareMultiGet();
+    public static MultiGetRequest getMultiGetRequestBuilder(IndexQueryPath indexPath, Collection<String> ids) {
+        //MultiGetRequestBuilder multiGetRequestBuilder = IndexClient.client.prepareMultiGet();
+        MultiGetRequest request = new MultiGetRequest();
         for (String id : ids) {
-            multiGetRequestBuilder.add(indexPath.index, indexPath.type, id);
+            request.add(indexPath.index, id);
         }
-        return multiGetRequestBuilder;
+        return request;
     }
 
     /**
@@ -360,11 +462,14 @@ public abstract class IndexService {
      * @param id
      * @return
      */
-    public static String getAsString(IndexQueryPath indexPath, String id) {
-        return getGetRequestBuilder(indexPath, id)
+    public static String getAsString(IndexQueryPath indexPath, String id) throws IOException {
+        GetRequest request = new GetRequest(indexPath.index, id);
+        GetResponse response = IndexClient.client.get(request, RequestOptions.DEFAULT);
+        return  response.getSourceAsString();
+        /*return getGetRequestBuilder(indexPath, id)
           .execute()
           .actionGet()
-          .getSourceAsString();
+          .getSourceAsString();*/
     }
 
     private static <T extends Index> T getTFromGetResponse(Class<T> clazz, GetResponse getResponse) {
@@ -407,9 +512,11 @@ public abstract class IndexService {
      * @param clazz
      * @return
      */
-    public static <T extends Index> T get(IndexQueryPath indexPath, Class<T> clazz, String id) {
-        GetRequestBuilder getRequestBuilder = getGetRequestBuilder(indexPath, id);
-        GetResponse getResponse = getRequestBuilder.execute().actionGet();
+    public static <T extends Index> T get(IndexQueryPath indexPath, Class<T> clazz, String id) throws IOException {
+        /*GetRequestBuilder getRequestBuilder = getGetRequestBuilder(indexPath, id);
+        GetResponse getResponse = getRequestBuilder.execute().actionGet();*/
+        GetRequest request = new GetRequest(indexPath.index, id);
+        GetResponse getResponse = IndexClient.client.get(request, RequestOptions.DEFAULT);
         return getTFromGetResponse(clazz, getResponse);
     }
 
@@ -422,14 +529,28 @@ public abstract class IndexService {
      * @return
      */
     public static <T extends Index> F.Promise<T> getAsync(IndexQueryPath indexPath, final Class<T> clazz, String id) {
-        F.Promise<GetResponse> responsePromise = AsyncUtils.executeAsyncJava(getGetRequestBuilder(indexPath, id));
+        /*F.Promise<GetResponse> responsePromise = AsyncUtils.executeAsyncJava(getGetRequestBuilder(indexPath, id));
         return responsePromise.map(
           new F.Function<GetResponse, T>() {
               public T apply(GetResponse getResponse) {
                   return getTFromGetResponse(clazz, getResponse);
               }
           }
-        );
+        );*/
+        GetRequest request = new GetRequest(indexPath.index, id);
+        F.Promise<T> f = null;
+        IndexClient.client.getAsync(request, RequestOptions.DEFAULT,  new ActionListener<GetResponse>() {
+            @Override
+            public void onResponse(GetResponse getResponse) {
+                f.onRedeem((F.Callback<T>) getResponse);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                f.onFailure((F.Callback<Throwable>) e.getCause());
+            }
+        });
+        return f;
     }
 
     /**
@@ -439,10 +560,11 @@ public abstract class IndexService {
      * @param id
      * @return
      */
-    public static GetResponse get(String indexName, String indexType, String id) {
-
-        GetRequestBuilder getRequestBuilder = IndexClient.client.prepareGet(indexName, indexType, id);
-        GetResponse getResponse = getRequestBuilder.execute().actionGet();
+    public static GetResponse get(String indexName, String indexType, String id) throws IOException {
+        GetRequest request = new GetRequest(indexName, id);
+        GetResponse getResponse = IndexClient.client.get(request, RequestOptions.DEFAULT);
+        /*GetRequestBuilder getRequestBuilder = IndexClient.client.prepareGet(indexName, indexType, id);
+        GetResponse getResponse = getRequestBuilder.execute().actionGet();*/
         return getResponse;
     }
 
@@ -453,9 +575,9 @@ public abstract class IndexService {
      * @param clazz
      * @return
      */
-    public static <T extends Index> List<T> multiGet(IndexQueryPath indexPath, Class<T> clazz, Collection<String> ids) {
-        MultiGetRequestBuilder multiGetRequestBuilder = getMultiGetRequestBuilder(indexPath, ids);
-        MultiGetResponse multiGetResponse = multiGetRequestBuilder.execute().actionGet();
+    public static <T extends Index> List<T> multiGet(IndexQueryPath indexPath, Class<T> clazz, Collection<String> ids) throws IOException {
+        MultiGetRequest request = getMultiGetRequestBuilder(indexPath, ids);
+        MultiGetResponse multiGetResponse = IndexClient.client.mget(request, RequestOptions.DEFAULT);
         return getTsFromMultiGetResponse(clazz, multiGetResponse);
     }
 
@@ -464,19 +586,32 @@ public abstract class IndexService {
      * @param indexPath
      * @param clazz
      * @param ids
-     * @param List<T>
+     * @param <T>
      * @return
      */
     public static <T extends Index> F.Promise<List<T>> multiGetAsync(IndexQueryPath indexPath, final Class<T> clazz, Collection<String> ids) {
-        MultiGetRequestBuilder multiGetRequestBuilder = getMultiGetRequestBuilder(indexPath, ids);
-        F.Promise<MultiGetResponse> responsePromise  = AsyncUtils.executeAsyncJava(multiGetRequestBuilder);
+        MultiGetRequest request = getMultiGetRequestBuilder(indexPath, ids);
+        F.Promise<List<T>> f = null;
+        IndexClient.client.mgetAsync(request, RequestOptions.DEFAULT, new ActionListener<MultiGetResponse>() {
+            @Override
+            public void onResponse(MultiGetResponse multiGetItemResponses) {
+                f.onRedeem((F.Callback<List<T>>) multiGetItemResponses);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                f.onFailure((F.Callback<Throwable>) e.getCause());
+            }
+        });
+        return f;
+        /*F.Promise<MultiGetResponse> responsePromise  = AsyncUtils.executeAsyncJava(multiGetRequestBuilder);
         return responsePromise.filter(null).map(
           new F.Function<MultiGetResponse, List<T>>() {
               public List<T> apply(MultiGetResponse getResponse) {
                   return getTsFromMultiGetResponse(clazz, getResponse);
               }
           }
-        );
+        );*/
     }
 
     /**
@@ -486,12 +621,12 @@ public abstract class IndexService {
      * @param ids
      * @return
      */
-    public static MultiGetResponse multiGet(String indexName, String indexType, Collection<String> ids) {
-        MultiGetRequestBuilder multiGetRequestBuilder = IndexClient.client.prepareMultiGet();
+    public static MultiGetResponse multiGet(String indexName, String indexType, Collection<String> ids) throws IOException {
+        MultiGetRequest multiGetRequest = new MultiGetRequest();
         for (String id : ids) {
-            multiGetRequestBuilder.add(indexName, indexType, ids);
+            multiGetRequest.add(indexName, id);
         }
-        MultiGetResponse multiGetResponse = multiGetRequestBuilder.execute().actionGet();
+        MultiGetResponse multiGetResponse = IndexClient.client.mget(multiGetRequest, RequestOptions.DEFAULT);
         return multiGetResponse;
     }
 
@@ -522,15 +657,17 @@ public abstract class IndexService {
      * Test if an indice Exists
      * @return true if exists
      */
-    public static boolean existsIndex(String indexName) {
+    public static boolean existsIndex(String indexName) throws IOException {
 
-        Client client = IndexClient.client;
-        AdminClient admin = client.admin();
-        IndicesAdminClient indices = admin.indices();
-        IndicesExistsRequestBuilder indicesExistsRequestBuilder = indices.prepareExists(indexName);
-        IndicesExistsResponse response = indicesExistsRequestBuilder.execute().actionGet();
-
-        return response.isExists();
+        //AdminClient admin = client.admin();
+        //IndicesAdminClient indices = admin.indices();
+        //IndicesExistsRequestBuilder indicesExistsRequestBuilder = indices.prepareExists(indexName);
+        //IndicesExistsResponse response = indicesExistsRequestBuilder.execute().actionGet();
+        RestHighLevelClient client = IndexClient.client;
+        IndicesClient indicesClient = client.indices();
+        GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
+        return indicesClient.exists(getIndexRequest, RequestOptions.DEFAULT);
+        //return response.isExists();
     }
 
     /**
@@ -539,12 +676,14 @@ public abstract class IndexService {
     public static void createIndex(String indexName) {
         Logger.debug("ElasticSearch : creating index [" + indexName + "]");
         try {
-            CreateIndexRequestBuilder creator = IndexClient.client.admin().indices().prepareCreate(indexName);
+            CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+            IndexClient.client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
+            /*CreateIndexRequestBuilder creator = IndexClient.client.admin().indices().prepareCreate(indexName);
             String setting = IndexClient.config.indexSettings.get(indexName);
             if (setting != null) {
                 creator.setSettings(setting);
             }
-            creator.execute().actionGet();
+            creator.execute().actionGet();*/
         } catch (Exception e) {
             Logger.error("ElasticSearch : Index create error : " + e.toString());
         }
@@ -556,7 +695,9 @@ public abstract class IndexService {
     public static void deleteIndex(String indexName) {
         Logger.debug("ElasticSearch : deleting index [" + indexName + "]");
         try {
-            IndexClient.client.admin().indices().prepareDelete(indexName).execute().actionGet();
+            DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(indexName);
+            IndexClient.client.indices().delete(deleteIndexRequest, RequestOptions.DEFAULT);
+            //IndexClient.client.admin().indices().prepareDelete(indexName).execute().actionGet();
         } catch (IndexNotFoundException indexMissing) {
             Logger.debug("ElasticSearch : Index " + indexName + " no exists");
         } catch (Exception e) {
@@ -580,9 +721,11 @@ public abstract class IndexService {
      * @param indexType
      * @param indexMapping
      */
-    public static PutMappingResponse createMapping(String indexName, String indexType, String indexMapping) {
+    public static AcknowledgedResponse createMapping(String indexName, String indexType, String indexMapping) throws IOException {
         Logger.debug("ElasticSearch : creating mapping [" + indexName + "/" + indexType + "] :  " + indexMapping);
-        PutMappingResponse response = IndexClient.client.admin().indices().preparePutMapping(indexName).setType(indexType).setSource(indexMapping).execute().actionGet();
+        //AcknowledgedResponse response = IndexClient.client.admin().indices().preparePutMapping(indexName).setType(indexType).setSource(indexMapping).execute().actionGet();
+        PutMappingRequest request = new PutMappingRequest(indexName);
+        AcknowledgedResponse response = IndexClient.client.indices().putMapping(request, RequestOptions.DEFAULT);
         return response;
     }
 
@@ -592,23 +735,24 @@ public abstract class IndexService {
      * @return
      */
     public static String getMapping(String indexName, String indexType) {
-        ClusterState state = IndexClient.client.admin().cluster()
+        /*ClusterState state = IndexClient.client.admin().cluster()
                 .prepareState()
                 .setIndices(IndexService.INDEX_DEFAULT)
                 .execute().actionGet().getState();
-        MappingMetaData mappingMetaData = state.getMetaData().index(indexName).mapping(indexType);
+        MappingMetaData mappingMetaData = state.getMetaData().index(indexName).mapping();
         if (mappingMetaData != null) {
             return mappingMetaData.source().toString();
         } else {
             return null;
-        }
+        }*/
+        return  null;
     }
 
     /**
      * call createMapping for list of @indexType
      * @param indexName
      */
-    public static void prepareIndex(String indexName) {
+    public static void prepareIndex(String indexName) throws IOException {
 
         Map<IndexQueryPath, String> indexMappings = IndexClient.config.indexMappings;
         for (IndexQueryPath indexQueryPath : indexMappings.keySet()) {
@@ -623,7 +767,7 @@ public abstract class IndexService {
         }
     }
 
-    public static void cleanIndex() {
+    public static void cleanIndex() throws IOException {
 
         String[] indexNames = IndexClient.config.indexNames;
         for (String indexName : indexNames) {
@@ -631,7 +775,7 @@ public abstract class IndexService {
         }
     }
 
-    public static void cleanIndex(String indexName) {
+    public static void cleanIndex(String indexName) throws IOException {
 
         if (IndexService.existsIndex(indexName)) {
             IndexService.deleteIndex(indexName);
@@ -643,7 +787,7 @@ public abstract class IndexService {
     /**
      * Refresh full index
      */
-    public static void refresh() {
+    public static void refresh() throws IOException {
         String[] indexNames = IndexClient.config.indexNames;
         for (String indexName : indexNames) {
             refresh(indexName);
@@ -654,14 +798,16 @@ public abstract class IndexService {
      * Refresh an index
      * @param indexName
      */
-    private static void refresh(String indexName) {
-        IndexClient.client.admin().indices().refresh(new RefreshRequest(indexName)).actionGet();
+    private static void refresh(String indexName) throws IOException {
+        RefreshRequest refreshRequest = new RefreshRequest(indexName);
+        IndexClient.client.indices().refresh(refreshRequest, RequestOptions.DEFAULT);
+        //IndexClient.client.admin().indices().refresh(new RefreshRequest(indexName)).actionGet();
     }
 
     /**
      * Flush full index
      */
-    public static void flush() {
+    public static void flush() throws IOException {
         String[] indexNames = IndexClient.config.indexNames;
         for (String indexName : indexNames) {
             flush(indexName);
@@ -672,8 +818,10 @@ public abstract class IndexService {
      * Flush an index
      * @param indexName
      */
-    public static void flush(String indexName) {
-        IndexClient.client.admin().indices().flush(new FlushRequest(indexName)).actionGet();
+    public static void flush(String indexName) throws IOException {
+        FlushRequest flushRequest = new FlushRequest(indexName);
+        IndexClient.client.indices().flush(flushRequest, RequestOptions.DEFAULT);
+        //IndexClient.client.admin().indices().flush(new FlushRequest(indexName)).actionGet();
     }
 
     /**
@@ -683,11 +831,11 @@ public abstract class IndexService {
      * @param queryBuilder
      * @return
      */
-    public static IndexResponse createPercolator(String namePercolator, QueryBuilder queryBuilder) {
-        return createPercolator(INDEX_DEFAULT, namePercolator, queryBuilder,false);
-    }
+    /*public static IndexResponse createPercolator(String namePercolator, QueryBuilder queryBuilder) {
+        return createPercolator(INDEX_DEFAULT, namePercolator, queryBuilder);
+    }*/
 
-    public static IndexResponse createPercolator(String indexName, String queryName, QueryBuilder queryBuilder, boolean immediatelyAvailable) {
+    /*public static IndexResponse createPercolator(String indexName, String queryName, QueryBuilder queryBuilder) {
         XContentBuilder source = null;
         try {
             source = jsonBuilder().startObject()
@@ -702,10 +850,10 @@ public abstract class IndexService {
                         PERCOLATOR_TYPE,
                         queryName)
                         .setSource(source)
-                        .setRefresh(immediatelyAvailable);
+                        .setRefreshPolicy(RefreshPolicy.NONE);
 
         return percolatorRequest.execute().actionGet();
-    }
+    }*/
 
     /**
      * Create Percolator
@@ -715,20 +863,20 @@ public abstract class IndexService {
      * @return
      * @throws IOException
      */
-    public static IndexResponse createPercolator(String namePercolator, String query) {
-        return createPercolator(INDEX_DEFAULT,namePercolator,query,false);
-    }
+    /*public static IndexResponse createPercolator(String namePercolator, String query) {
+        return createPercolator(INDEX_DEFAULT,namePercolator,query);
+    }*/
 
-    public static IndexResponse createPercolator(String indexName, String queryName, String query, boolean immediatelyAvailable) {
+    /*public static IndexResponse createPercolator(String indexName, String queryName, String query) {
         IndexRequestBuilder percolatorRequest =
                 IndexClient.client.prepareIndex(indexName,
                         PERCOLATOR_TYPE,
                         queryName)
                         .setSource("{\"query\": " + query + "}")
-                        .setRefresh(immediatelyAvailable);
+                        .setRefreshPolicy(RefreshPolicy.NONE);
 
         return percolatorRequest.execute().actionGet();
-    }
+    }*/
 
 
     /**
@@ -736,18 +884,18 @@ public abstract class IndexService {
      * @param namePercolator
      * @return
      */
-    public static boolean percolatorExists(String namePercolator) {
+    /*public static boolean percolatorExists(String namePercolator) {
         return percolatorExistsInIndex(namePercolator, INDEX_DEFAULT);
-    }
+    }*/
 
-    public static boolean percolatorExistsInIndex(String namePercolator, String indexName){
+    /*public static boolean percolatorExistsInIndex(String namePercolator, String indexName){
         try {
             GetResponse responseExist = IndexService.getPercolator(indexName, namePercolator);
             return (responseExist.isExists());
         } catch (IndexNotFoundException e) {
             return false;
         }
-    }
+    }*/
 
     /**
      * Delete Percolator
@@ -755,13 +903,13 @@ public abstract class IndexService {
      * @param namePercolator
      * @return
      */
-    public static DeleteResponse deletePercolator(String namePercolator) {
+    /*public static DeleteResponse deletePercolator(String namePercolator) {
         return deletePercolator(IndexService.INDEX_DEFAULT, namePercolator);
-    }
+    }*/
 
-    public static DeleteResponse deletePercolator(String indexName, String namePercolator) {
+    /*public static DeleteResponse deletePercolator(String indexName, String namePercolator) {
         return delete(new IndexQueryPath(indexName, PERCOLATOR_TYPE), namePercolator);
-    }
+    }*/
 
 
     // See important notes section on http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-percolate.html
@@ -786,9 +934,9 @@ public abstract class IndexService {
      * @param queryName
      * @return
      */
-    public static GetResponse getPercolator(String queryName) {
+    /*public static GetResponse getPercolator(String queryName) {
         return getPercolator(INDEX_DEFAULT, queryName);
-    }
+    }*/
 
     /**
      * Get the percolator details on an index
@@ -796,9 +944,9 @@ public abstract class IndexService {
      * @param queryName
      * @return
      */
-    public static GetResponse getPercolator(String indexName, String queryName){
+    /*public static GetResponse getPercolator(String indexName, String queryName){
         return get(indexName, PERCOLATOR_TYPE, queryName);
-    }
+    }*/
 
     /**
      * Get percolator match this Object
@@ -807,7 +955,7 @@ public abstract class IndexService {
      * @return
      * @throws IOException
      */
-    public static List<String> getPercolatorsForDoc(Index indexable) {
+    public static List<String> getPercolatorsForDoc(Index indexable) { /*
 
         PercolateRequestBuilder percolateRequestBuilder = new PercolateRequestBuilder(IndexClient.client, PercolateAction.INSTANCE);
         percolateRequestBuilder.setDocumentType(indexable.getIndexPath().type);
@@ -833,10 +981,11 @@ public abstract class IndexService {
             return null;
         }
         List<String> matchedQueryIds = new ArrayList<String>();
-        PercolateResponse.Match[] matches = percolateResponse.getMatches();
+        List<PercolateResponse.Match> matches = percolateResponse.getMatches();
         for(PercolateResponse.Match match : matches){
             matchedQueryIds.add(match.getId().string());
         }
-        return matchedQueryIds;
+        return matchedQueryIds;*/
+        return null;
     }
 }

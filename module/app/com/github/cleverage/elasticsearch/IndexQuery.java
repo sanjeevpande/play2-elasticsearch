@@ -2,9 +2,11 @@ package com.github.cleverage.elasticsearch;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -16,6 +18,7 @@ import org.elasticsearch.search.sort.SortOrder;
 import play.Logger;
 import play.libs.F;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -188,8 +191,9 @@ public class IndexQuery<T extends Index> {
      */
     public IndexResults<T> fetch(IndexQueryPath indexQueryPath, QueryBuilder filter) {
 
-        SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
-        return executeSearchRequest(request);
+        /*SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
+        return executeSearchRequest(request);*/
+        return null;
     }
 
     /**
@@ -204,19 +208,19 @@ public class IndexQuery<T extends Index> {
     /**
      * Runs the query asynchronously with a filter
      * @param indexQueryPath
-     * @param filterß
+     * @param filter
      * @return
      */
     public F.Promise<IndexResults<T>> fetchAsync(IndexQueryPath indexQueryPath, QueryBuilder filter) {
-        SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
+        /*SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
         F.Promise<SearchResponse> searchResponsePromise = AsyncUtils.executeAsyncJava(request);
         return searchResponsePromise.map(new F.Function<SearchResponse, IndexResults<T>>() {
             @Override
             public IndexResults<T> apply(SearchResponse searchResponse) {
                 return toSearchResults(searchResponse);
             }
-        });
-
+        });*/
+        return null;
     }
 
     public IndexResults<T> executeSearchRequest(SearchRequestBuilder request) {
@@ -233,13 +237,18 @@ public class IndexQuery<T extends Index> {
     }
 
     public SearchRequestBuilder getSearchRequestBuilder(IndexQueryPath indexQueryPath){
-        return getSearchRequestBuilder(indexQueryPath, null);
+        //return getSearchRequestBuilder(indexQueryPath, null);
+        return null;
     }
 
-    public SearchRequestBuilder getSearchRequestBuilder(IndexQueryPath indexQueryPath, QueryBuilder filter) {
+    public SearchRequestBuilder getSearchRequestBuilder(IndexQueryPath indexQueryPath, QueryBuilder filter) throws IOException {
+
+        /*SearchRequest searchRequest = new SearchRequest(indexQueryPath.index);
+        searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
+        IndexClient.client.search(searchRequest, RequestOptions.DEFAULT);*/
 
         // Build request
-        SearchRequestBuilder request = IndexClient.client
+        /*SearchRequestBuilder request = IndexClient.client
                 .prepareSearch(indexQueryPath.index)
                 .setTypes(indexQueryPath.type)
                 .setSearchType(SearchType.QUERY_THEN_FETCH)
@@ -247,7 +256,8 @@ public class IndexQuery<T extends Index> {
 
         // set Query
         if (StringUtils.isNotBlank(query)) {
-            request.setQuery(query);
+            //request.setQuery(query);
+            request.setQuery(builder);
         }
         else
         {
@@ -256,7 +266,7 @@ public class IndexQuery<T extends Index> {
 
         // set no Fields -> only return id and type
         if(noField) {
-            request.setNoFields();
+            request.setFetchSource(false);
         }
 
         // Aggregations
@@ -299,12 +309,13 @@ public class IndexQuery<T extends Index> {
                 Logger.debug("ElasticSearch : Query -> "+ builder.toString());
             }
         }
-        return request;
+        return request;*/
+        return null;
     }
 
     private IndexResults<T> toSearchResults(SearchResponse searchResponse) {
         // Get Total Records Found
-        long count = searchResponse.getHits().totalHits();
+        long count = searchResponse.getHits().getTotalHits().value;
 
         // Get Aggregations
         Aggregations aggregationsResponse = searchResponse.getAggregations();
@@ -316,7 +327,7 @@ public class IndexQuery<T extends Index> {
         for (SearchHit h : searchResponse.getHits()) {
 
             // Get Data Map
-            Map<String, Object> map = h.sourceAsMap();
+            Map<String, Object> map = h.getSourceAsMap();
 
             // Create a new Indexable Object for the return
             T objectIndexable = IndexUtils.getInstanceIndex(clazz);

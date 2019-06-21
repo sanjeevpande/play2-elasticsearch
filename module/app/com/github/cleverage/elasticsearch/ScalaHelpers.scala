@@ -85,12 +85,13 @@ object ScalaHelpers {
       * @return
       */
     def getAsync(id: String)(implicit executor : scala.concurrent.ExecutionContext): Future[Option[T]] = {
-      val getResponseFuture = AsyncUtils.executeAsync(IndexService.getGetRequestBuilder(indexPath, id))
+      /*val getResponseFuture = AsyncUtils.executeAsync(IndexService.getGetRequestBuilder(indexPath, id))
       getResponseFuture.map { response =>
         Option(response.getSourceAsString).map {
           Json.parse(_).as[T](reads)
         }
-      }
+      }*/
+      return null;
     }
 
     /**
@@ -99,12 +100,13 @@ object ScalaHelpers {
       * @return
       */
     def getAsync(ids: Seq[String])(implicit executor : scala.concurrent.ExecutionContext): Future[Option[List[T]]] = {
-      val getResponseFuture = AsyncUtils.executeAsync(IndexService.getMultiGetRequestBuilder(indexPath, ids.asJava))
+      /*val getResponseFuture = AsyncUtils.executeAsync(IndexService.getMultiGetRequestBuilder(indexPath, ids.asJava))
       getResponseFuture.map { responses =>
         Option(responses.getResponses.filter( _.getResponse.getSourceAsString != null).map { response =>
           Json.parse(response.getResponse.getSourceAsString).as[T](reads)
         }.toList)
-      }
+      }*/
+      return null;
     }
 
     /**
@@ -120,7 +122,8 @@ object ScalaHelpers {
      * @return
      */
     def indexAsync(t: T): Future[IndexResponse] = {
-      AsyncUtils.executeAsync(IndexService.getIndexRequestBuilder(indexPath, t.id, Json.toJson(t)(writes).toString()))
+      //AsyncUtils.executeAsync(IndexService.getIndexRequestBuilder(indexPath, t.id, Json.toJson(t)(writes).toString()))
+      return null;
     }
 
     /**
@@ -138,11 +141,12 @@ object ScalaHelpers {
      * @return
      */
     def indexAsync(tSeq: Seq[T])(implicit executor : scala.concurrent.ExecutionContext): Future[Seq[IndexResponse]] = {
-      Future.sequence(
+      /*Future.sequence(
         tSeq.map(t =>
           AsyncUtils.executeAsync(IndexService.getIndexRequestBuilder(indexPath, t.id, Json.toJson(t)(writes).toString()))
         )
-      )
+      )*/
+      return null;
     }
 
     protected def createBulkMap(tSeq: Seq[T]) = {
@@ -167,7 +171,8 @@ object ScalaHelpers {
      * @return
      */
     def indexBulkAsync(tSeq: Seq[T]): Future[BulkResponse] = {
-      AsyncUtils.executeAsync(IndexService.getBulkRequestBuilder(indexPath, createBulkMap(tSeq).asJava))
+      //AsyncUtils.executeAsync(IndexService.getBulkRequestBuilder(indexPath, createBulkMap(tSeq).asJava))
+      return null;
     }
 
     /**
@@ -183,7 +188,8 @@ object ScalaHelpers {
      * @return the DeleteResponse from Elasticsearch
      */
     def deleteAsync(id: String): Future[DeleteResponse] = {
-      AsyncUtils.executeAsync(IndexService.getDeleteRequestBuilder(indexPath, id))
+      //AsyncUtils.executeAsync(IndexService.getDeleteRequestBuilder(indexPath, id))
+      return null;
     }
 
     /**
@@ -226,8 +232,8 @@ object ScalaHelpers {
    */
   case class IndexQuery[T <: Indexable](
     val builder: QueryBuilder = QueryBuilders.matchAllQuery(),
-    val aggregationBuilders: List[AbstractAggregationBuilder] = Nil,
-    val sortBuilders: List[SortBuilder] = Nil,
+    val aggregationBuilders: List[AbstractAggregationBuilder[_]] = Nil,
+    val sortBuilders: List[SortBuilder[_]] = Nil,
     val from: Option[Int] = None,
     val size: Option[Int] = None,
     val explain: Option[Boolean] = None,
@@ -235,8 +241,8 @@ object ScalaHelpers {
     val preference: Option[String] = None
   ) {
     def withBuilder(builder: QueryBuilder): IndexQuery[T] = copy(builder = builder)
-    def addAggregation(aggregation: AbstractAggregationBuilder): IndexQuery[T] = copy(aggregationBuilders = aggregation :: aggregationBuilders)
-    def addSort(sort: SortBuilder): IndexQuery[T] = copy(sortBuilders = sortBuilders :+ sort)
+    def addAggregation(aggregation: AbstractAggregationBuilder[_]): IndexQuery[T] = copy(aggregationBuilders = aggregation :: aggregationBuilders)
+    def addSort(sort: SortBuilder[_]): IndexQuery[T] = copy(sortBuilders = sortBuilders :+ sort)
     def withFrom(from: Int): IndexQuery[T] = copy(from = Some(from))
     def withSize(size: Int): IndexQuery[T] = copy(size = Some(size))
     def withExplain(explain: Boolean): IndexQuery[T] = copy(explain = Some(explain))
@@ -274,8 +280,8 @@ object ScalaHelpers {
      * @return
      */
     def buildRequest(indexPath: IndexQueryPath): SearchRequestBuilder = {
-      val request = IndexClient.client.prepareSearch(indexPath.index)
-        .setTypes(indexPath.`type`)
+      /*val request = IndexClient.client.prepareSearch(indexPath.index)
+        //.setTypes(indexPath.`type`) //todo change
         .setSearchType(SearchType.QUERY_THEN_FETCH)
       request.setQuery(builder)
       aggregationBuilders.foreach {
@@ -294,12 +300,13 @@ object ScalaHelpers {
         request.setExplain(_)
       }
       if (noField) {
-        request.setNoFields()
+        request.setFetchSource(false)
       }
       preference.foreach {
         request.setPreference(_)
       }
-      request
+      request*/
+      return null;
     }
   }
 
@@ -345,9 +352,9 @@ object ScalaHelpers {
      * @return constructed IndexResults
      */
     def apply[T <: Indexable](indexQuery: IndexQuery[T], searchResponse: SearchResponse, reads: Reads[T]): IndexResults[T] = {
-      val totalCount: Long = searchResponse.getHits().totalHits()
+      val totalCount: Long = searchResponse.getHits().getTotalHits().value
       val pageSize: Long =
-        indexQuery.size.fold(searchResponse.getHits().hits().length.toLong)(_.toLong)
+        indexQuery.size.fold(searchResponse.getHits().getHits().length.toLong)(_.toLong)
       val pageCurrent: Long = indexQuery.from.fold (1L){ f => ((f / pageSize) + 1) }
       val hits = searchResponse.getHits().asScala.toList
 

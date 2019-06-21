@@ -19,7 +19,7 @@ object AsyncUtils {
    * @param requestBuilder
    * @return
    */
-  def executeAsync[RQ <: ActionRequest[RQ],RS <: ActionResponse, RB <: ActionRequestBuilder[RQ,RS,RB]](requestBuilder: ActionRequestBuilder[RQ,RS,RB]): Future[RS] = {
+  def executeAsync[RQ <: ActionRequest,RS <: ActionResponse, RB <: ActionRequestBuilder[RQ,RS]](requestBuilder: ActionRequestBuilder[RQ,RS]): Future[RS] = {
     val promise = Promise[RS]()
 
     requestBuilder.execute(new ActionListener[RS] {
@@ -30,6 +30,8 @@ object AsyncUtils {
       def onFailure(t: Throwable) {
         promise.failure(t)
       }
+
+      override def onFailure(e: Exception): Unit = ???
     })
 
     promise.future
@@ -40,7 +42,7 @@ object AsyncUtils {
    * @param requestBuilder
    * @return
    */
-  def executeAsyncJava[RQ <: ActionRequest[RQ],RS <: ActionResponse, RB <: ActionRequestBuilder[RQ,RS,RB]](requestBuilder: ActionRequestBuilder[RQ,RS,RB]): F.Promise[RS] = {
+  def executeAsyncJava[RQ <: ActionRequest,RS <: ActionResponse, RB <: ActionRequestBuilder[RQ,RS]](requestBuilder: ActionRequestBuilder[RQ,RS]): F.Promise[RS] = {
     F.Promise.wrap(executeAsync(requestBuilder))
   }
 

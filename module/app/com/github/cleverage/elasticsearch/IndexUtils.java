@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
+import org.elasticsearch.search.DocValueFormat;
 import play.Logger;
 
 public abstract class IndexUtils {
@@ -205,7 +206,10 @@ public abstract class IndexUtils {
 
     private static Date getDate(String val) {
         try {
-            return XContentBuilder.defaultDatePrinter.parseDateTime(val).toDate();
+            Date date = new Date(Long.valueOf(val));
+            return date;
+            //TODO::
+            //return XContentBuilder.defaultDatePrinter.parseDateTime(val).toDate();
         } catch (Throwable t) {
             Logger.error(val, t);
         }

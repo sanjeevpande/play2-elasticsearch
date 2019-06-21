@@ -1,10 +1,10 @@
 package com.github.cleverage.elasticsearch;
 
-import org.elasticsearch.client.transport.TransportClient;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsException;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.node.NodeBuilder;
 import play.Logger;
 import play.api.Configuration;
 import play.api.Environment;
@@ -12,13 +12,12 @@ import play.api.Environment;
 import java.net.InetAddress;
 import java.nio.file.Paths;
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
-
 public class IndexClient {
 
     public static org.elasticsearch.node.Node node = null;
 
-    public static org.elasticsearch.client.Client client = null;
+    //public static org.elasticsearch.client.Client client = null;
+    public static org.elasticsearch.client.RestHighLevelClient client = null;
 
     public static IndexConfig config;
 
@@ -35,40 +34,56 @@ public class IndexClient {
         // Check Model
         if (this.isLocalMode()) {
             Logger.info("ElasticSearch : Starting in Local Mode");
-
-            NodeBuilder nb = nodeBuilder().settings(settings).local(true).client(false).data(true);
-            node = nb.node();
-            client = node.client();
+            RestHighLevelClient c = new RestHighLevelClient(RestClient.builder(new HttpHost("localhost", 9200, "http"),
+                    new HttpHost("localhost", 9201, "http")));
+            //NodeBuilder nb = nodeBuilder().settings(settings).local(true).client(false).data(true);
+            //node = nb.node();
+            /*org.elasticsearch.env.Environment env = new org.elasticsearch.env.Environment(settings.build(), null);
+            node = new org.elasticsearch.node.Node(env);
+            client = node;*/
+            client = c;
             Logger.info("ElasticSearch : Started in Local Mode");
         } else {
             Logger.info("ElasticSearch : Starting in Client Mode");
-            TransportClient c = TransportClient.builder().settings(settings).build();
+            //TransportClient c = new PreBuiltTransportClient(settings);
             if (config.client == null) {
                 throw new Exception("Configuration required - elasticsearch.client when local model is disabled!");
             }
 
             String[] hosts = config.client.trim().split(",");
             boolean done = false;
-            for (String host : hosts) {
-                String[] parts = host.split(":");
-                if (parts.length != 2) {
-                    throw new Exception("Invalid Host: " + host);
+
+            if(null != hosts && hosts.length > 0) {
+                HttpHost[] addresses = new HttpHost[hosts.length];
+                int i = 0;
+                for (String host : hosts) {
+                    String[] parts = host.split(":");
+                    if (parts.length != 2) {
+                        throw new Exception("Invalid Host: " + host);
+                    }
+                    Logger.info("ElasticSearch : Client - Host: " + parts[0] + " Port: " + parts[1]);
+                    InetAddress hostName = InetAddress.getByName(parts[0]);
+                    Integer port = Integer.valueOf(parts[1]);
+                    addresses[i] = new HttpHost(hostName, port, "http");
+                    //c.addTransportAddress(new TransportAddress(InetAddress.getByName(parts[0]), Integer.valueOf(parts[1])));
+                    done = true;
+                    i++;
                 }
-                Logger.info("ElasticSearch : Client - Host: " + parts[0] + " Port: " + parts[1]);
-                c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(parts[0]), Integer.valueOf(parts[1])));
-                done = true;
+
+                RestHighLevelClient c = new RestHighLevelClient(RestClient.builder(addresses));
+                client = c;
             }
             if (!done) {
                 throw new Exception("No Hosts Provided for ElasticSearch!");
             }
-            client = c;
+
             Logger.info("ElasticSearch : Started in Client Mode");
         }
 
         // Check Client
-        if (client == null) {
+        /*if (client == null) {
             throw new Exception("ElasticSearch Client cannot be null - please check the configuration provided and the health of your ElasticSearch instances.");
-        }
+        }*/
     }
 
     /**
@@ -99,7 +114,7 @@ public class IndexClient {
      * @throws Exception
      */
     private Settings.Builder loadSettings() throws Exception {
-        Settings.Builder settings = Settings.settingsBuilder();
+        Settings.Builder settings = Settings.builder();
 
         // set default settings
         settings.put("client.transport.sniff", config.sniffing);
@@ -119,7 +134,7 @@ public class IndexClient {
             }
         }
         settings.build();
-        Logger.info("Elasticsearch : Settings  " + settings.internalMap().toString());
+        Logger.info("Elasticsearch : Settings  " + settings.keys().toString());
         return settings;
     }
 

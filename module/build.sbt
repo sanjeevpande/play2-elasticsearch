@@ -5,7 +5,7 @@ import scala.Some
 
 name := "play2-elasticsearch"
 
-version := "2.1-SNAPSHOT"
+version := "7.1.1-SNAPSHOT"
 
 // DO NOT include a top-level directory in the outputting tgz file
 topLevelDirectory := None
@@ -17,12 +17,13 @@ scalaVersion := "2.11.7"
 libraryDependencies ++= Seq(
   javaCore,
   // Add your project dependencies here
-  "org.elasticsearch" % "elasticsearch" % "2.1.1",
+  "org.elasticsearch" % "elasticsearch" % "7.1.1",
   "org.codehaus.groovy" % "groovy-all" % "2.3.8",
   "org.apache.commons" % "commons-lang3" % "3.1",
   "org.easytesting" % "fest-assert" % "1.4" % "test",
-  "org.specs2" %% "specs2-core" % "3.7.2" % "test"
-
+  "org.specs2" %% "specs2-core" % "3.7.2" % "test",
+  "org.apache.storm" % "storm-elasticsearch" % "2.0.0",
+  "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "7.1.1"
 )
 
 sonatypeSettings

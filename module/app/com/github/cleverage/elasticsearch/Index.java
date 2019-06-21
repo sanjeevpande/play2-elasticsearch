@@ -6,6 +6,7 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
 
 import play.Logger;
@@ -14,6 +15,7 @@ import play.libs.F;
 import com.github.cleverage.elasticsearch.annotations.IndexName;
 import com.github.cleverage.elasticsearch.annotations.IndexType;
 
+import java.io.IOException;
 import java.util.Map;
 
 @JsonIgnoreProperties({"searchHit"})
@@ -64,7 +66,7 @@ public abstract class Index implements Indexable {
      * @return
      * @throws Exception
      */
-    public IndexResponse index() {
+    public IndexResponse index() throws IOException {
         return IndexService.index(getIndexPath(), id, this);
     }
 
@@ -73,7 +75,7 @@ public abstract class Index implements Indexable {
      * @return
      * @throws Exception
      */
-    public IndexResponse index(String indexName) {
+    public IndexResponse index(String indexName) throws IOException {
         return IndexService.index(getIndexPath(indexName), id, this);
     }
 
@@ -95,19 +97,19 @@ public abstract class Index implements Indexable {
         return IndexService.indexAsync(getIndexPath(indexName), id, this);
     }
 
-    public UpdateResponse update(Map<String,Object> updateFieldValues , String updateScript, ScriptService.ScriptType scriptType, String lang){
+    public UpdateResponse update(Map<String,Object> updateFieldValues , String updateScript, ScriptType scriptType, String lang) throws IOException {
         return IndexService.update(getIndexPath(), id, updateFieldValues, updateScript, scriptType, lang);
     }
 
-    public UpdateResponse update(String indexName, Map<String,Object> updateFieldValues , String updateScript, ScriptService.ScriptType scriptType, String lang){
+    public UpdateResponse update(String indexName, Map<String,Object> updateFieldValues , String updateScript, ScriptType scriptType, String lang) throws IOException {
         return IndexService.update(getIndexPath(indexName), id, updateFieldValues, updateScript, scriptType, lang);
     }
 
-    public F.Promise<UpdateResponse> updateAsync(Map<String,Object> updateFieldValues , String updateScript, ScriptService.ScriptType scriptType, String lang){
+    public F.Promise<UpdateResponse> updateAsync(Map<String,Object> updateFieldValues , String updateScript, ScriptType scriptType, String lang){
         return IndexService.updateAsync(getIndexPath(), id, updateFieldValues, updateScript, scriptType, lang);
     }
 
-    public F.Promise<UpdateResponse> updateAsync(String indexName, Map<String,Object> updateFieldValues , String updateScript, ScriptService.ScriptType scriptType, String lang){
+    public F.Promise<UpdateResponse> updateAsync(String indexName, Map<String,Object> updateFieldValues , String updateScript, ScriptType scriptType, String lang){
         return IndexService.updateAsync(getIndexPath(indexName), id, updateFieldValues, updateScript, scriptType, lang);
     }
 
@@ -188,7 +190,7 @@ public abstract class Index implements Indexable {
          * @param id
          * @return
          */
-        public T byId(String id) {
+        public T byId(String id) throws IOException {
             return IndexService.get(queryPath, type, id);
         }
 
