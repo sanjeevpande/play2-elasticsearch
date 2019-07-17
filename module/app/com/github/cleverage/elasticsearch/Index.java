@@ -1,19 +1,16 @@
 package com.github.cleverage.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.github.cleverage.elasticsearch.annotations.IndexName;
+import com.github.cleverage.elasticsearch.annotations.IndexType;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
-
 import play.Logger;
 import play.libs.F;
-
-import com.github.cleverage.elasticsearch.annotations.IndexName;
-import com.github.cleverage.elasticsearch.annotations.IndexType;
 
 import java.io.IOException;
 import java.util.Map;
@@ -147,6 +144,14 @@ public abstract class Index implements Indexable {
      */
     public F.Promise<DeleteResponse> deleteAsync(String indexName) {
         return IndexService.deleteAsync(getIndexPath(indexName), id);
+    }
+
+    public SearchHit getSearchHit() {
+        return searchHit;
+    }
+
+    public void setSearchHit(SearchHit searchHit) {
+        this.searchHit = searchHit;
     }
 
     /**
