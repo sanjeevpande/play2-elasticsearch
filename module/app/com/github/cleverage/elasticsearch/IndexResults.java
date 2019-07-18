@@ -1,6 +1,7 @@
 package com.github.cleverage.elasticsearch;
 
-import org.elasticsearch.search.facet.Facets;
+import org.elasticsearch.search.aggregations.Aggregations;
+//import org.elasticsearch.search.facet.Facets;
 
 import java.util.List;
 
@@ -33,7 +34,7 @@ public class IndexResults<T extends Index> {
     public List<T> results;
 
     /** The facets. */
-    public Facets facets;
+    //public Facets facets;
 
     /**
      * Create new Index Result
@@ -44,13 +45,13 @@ public class IndexResults<T extends Index> {
      * @param results
      * @param facets
      */
-    public IndexResults(long totalCount,long pageSize, long pageCurrent, long pageNb, List<T> results, Facets facets) {
+    public IndexResults(long totalCount, long pageSize, long pageCurrent, long pageNb, List<T> results, Aggregations facets) {
         this.totalCount = totalCount;
         this.pageSize = pageSize;
         this.pageCurrent = pageCurrent;
         this.pageNb = pageNb;
         this.results = results;
-        this.facets = facets;
+        //this.facets = facets;
     }
 
 }

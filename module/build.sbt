@@ -5,14 +5,16 @@ import xerial.sbt.Sonatype._
 
 name := "play2-elasticsearch"
 
-version := "1.4-SNAPSHOT"
+version := "7.1.1-SNAPSHOT"
 
 libraryDependencies ++= Seq(
   javaCore,
   // Add your project dependencies here
-  "org.elasticsearch" % "elasticsearch" % "1.4.1",
+  "org.elasticsearch" % "elasticsearch" % "7.1.1",
   "org.codehaus.groovy" % "groovy-all" % "2.3.8",
-  "org.apache.commons" % "commons-lang3" % "3.1"
+  "org.apache.commons" % "commons-lang3" % "3.1",
+  "org.apache.storm" % "storm-elasticsearch" % "2.0.0",
+  "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "7.1.1"
 )
 
 play.Project.playJavaSettings

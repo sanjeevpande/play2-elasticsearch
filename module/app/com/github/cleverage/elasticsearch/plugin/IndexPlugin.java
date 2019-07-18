@@ -9,6 +9,8 @@ import play.Plugin;
 import com.github.cleverage.elasticsearch.IndexClient;
 import com.github.cleverage.elasticsearch.IndexService;
 
+import java.io.IOException;
+
 /**
  * ElasticSearch PLugin for Play 2 written in Java.
  * User: nboire
@@ -83,8 +85,12 @@ public class IndexPlugin extends Plugin
             if (client.config.dropOnShutdown) {
                 String[] indexNames = client.config.indexNames;
                 for (String indexName : indexNames) {
-                    if(IndexService.existsIndex(indexName)) {
-                        IndexService.deleteIndex(indexName);
+                    try {
+                        if(IndexService.existsIndex(indexName)) {
+                            IndexService.deleteIndex(indexName);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
             }

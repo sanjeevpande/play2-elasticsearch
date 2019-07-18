@@ -1,25 +1,20 @@
 package com.github.cleverage.elasticsearch;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchType;
-import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.facet.FacetBuilder;
-import org.elasticsearch.search.facet.Facets;
+import org.elasticsearch.search.aggregations.AbstractAggregationBuilder;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import play.Logger;
 import play.libs.F;
-import scala.concurrent.Future;
-import scala.concurrent.Promise;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -43,7 +38,7 @@ public class IndexQuery<T extends Index> {
      */
     private QueryBuilder builder = QueryBuilders.matchAllQuery();
     private String query = null;
-    private List<FacetBuilder> facets = new ArrayList<FacetBuilder>();
+    private List<AbstractAggregationBuilder> aggregations = new ArrayList<AbstractAggregationBuilder>();
     private List<SortBuilder> sorts = new ArrayList<SortBuilder>();
 
     private int from = -1;
@@ -130,15 +125,15 @@ public class IndexQuery<T extends Index> {
     }
 
     /**
-     * Adds a facet
+     * Adds an aggregation
      *
-     * @param facet
-     *            the facet
+     * @param aggregation
+     *            the aggregation
      * @return self
      */
-    public IndexQuery<T> addFacet(FacetBuilder facet) {
-        Validate.notNull(facet, "facet cannot be null");
-        facets.add(facet);
+    public IndexQuery<T> addAggregation(AbstractAggregationBuilder aggregation) {
+        Validate.notNull(aggregation, "aggregation cannot be null");
+        aggregations.add(aggregation);
 
         return this;
     }
@@ -189,10 +184,11 @@ public class IndexQuery<T extends Index> {
      * @param filter
      * @return
      */
-    public IndexResults<T> fetch(IndexQueryPath indexQueryPath, FilterBuilder filter) {
+    public IndexResults<T> fetch(IndexQueryPath indexQueryPath, QueryBuilder filter) {
 
-        SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
-        return executeSearchRequest(request);
+        /*SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
+        return executeSearchRequest(request);*/
+        return null;
     }
 
     /**
@@ -210,16 +206,16 @@ public class IndexQuery<T extends Index> {
      * @param filter
      * @return
      */
-    public F.Promise<IndexResults<T>> fetchAsync(IndexQueryPath indexQueryPath, FilterBuilder filter) {
-        SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
+    public F.Promise<IndexResults<T>> fetchAsync(IndexQueryPath indexQueryPath, QueryBuilder filter) {
+        /*SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
         F.Promise<SearchResponse> searchResponsePromise = AsyncUtils.executeAsyncJava(request);
         return searchResponsePromise.map(new F.Function<SearchResponse, IndexResults<T>>() {
             @Override
-            public IndexResults<T> apply(SearchResponse searchResponse) throws Throwable {
+            public IndexResults<T> apply(SearchResponse searchResponse) {
                 return toSearchResults(searchResponse);
             }
-        });
-
+        });*/
+        return null;
     }
 
     public IndexResults<T> executeSearchRequest(SearchRequestBuilder request) {
@@ -236,13 +232,18 @@ public class IndexQuery<T extends Index> {
     }
 
     public SearchRequestBuilder getSearchRequestBuilder(IndexQueryPath indexQueryPath){
-        return getSearchRequestBuilder(indexQueryPath, null);
+        //return getSearchRequestBuilder(indexQueryPath, null);
+        return null;
     }
 
-    public SearchRequestBuilder getSearchRequestBuilder(IndexQueryPath indexQueryPath, FilterBuilder filter) {
+    public SearchRequestBuilder getSearchRequestBuilder(IndexQueryPath indexQueryPath, QueryBuilder filter) throws IOException {
+
+        /*SearchRequest searchRequest = new SearchRequest(indexQueryPath.index);
+        searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
+        IndexClient.client.search(searchRequest, RequestOptions.DEFAULT);*/
 
         // Build request
-        SearchRequestBuilder request = IndexClient.client
+        /*SearchRequestBuilder request = IndexClient.client
                 .prepareSearch(indexQueryPath.index)
                 .setTypes(indexQueryPath.type)
                 .setSearchType(SearchType.QUERY_THEN_FETCH)
@@ -250,7 +251,8 @@ public class IndexQuery<T extends Index> {
 
         // set Query
         if (StringUtils.isNotBlank(query)) {
-            request.setQuery(query);
+            //request.setQuery(query);
+            request.setQuery(builder);
         }
         else
         {
@@ -259,12 +261,12 @@ public class IndexQuery<T extends Index> {
 
         // set no Fields -> only return id and type
         if(noField) {
-            request.setNoFields();
+            request.setFetchSource(false);
         }
 
-        // Facets
-        for (FacetBuilder facet : facets) {
-            request.addFacet(facet);
+        // Aggregations
+        for (AbstractAggregationBuilder aggregation : aggregations) {
+            request.addAggregation(aggregation);
         }
 
         // Sorting
@@ -302,15 +304,16 @@ public class IndexQuery<T extends Index> {
                 Logger.debug("ElasticSearch : Query -> "+ builder.toString());
             }
         }
-        return request;
+        return request;*/
+        return null;
     }
 
     private IndexResults<T> toSearchResults(SearchResponse searchResponse) {
         // Get Total Records Found
-        long count = searchResponse.getHits().totalHits();
+        long count = searchResponse.getHits().getTotalHits().value;
 
-        // Get Facets
-        Facets facetsResponse = searchResponse.getFacets();
+        // Get Aggregations
+        Aggregations aggregationsResponse = searchResponse.getAggregations();
 
         // Get List results
         List<T> results = new ArrayList<T>();
@@ -319,7 +322,7 @@ public class IndexQuery<T extends Index> {
         for (SearchHit h : searchResponse.getHits()) {
 
             // Get Data Map
-            Map<String, Object> map = h.sourceAsMap();
+            Map<String, Object> map = h.getSourceAsMap();
 
             // Create a new Indexable Object for the return
             T objectIndexable = IndexUtils.getInstanceIndex(clazz);
@@ -353,8 +356,7 @@ public class IndexQuery<T extends Index> {
         }
 
         // Return Results
-        return new IndexResults<T>(count, pageSize, pageCurrent, pageNb, results, facetsResponse);
+        return new IndexResults<T>(count, pageSize, pageCurrent, pageNb, results, aggregationsResponse);
     }
 
 }
-
