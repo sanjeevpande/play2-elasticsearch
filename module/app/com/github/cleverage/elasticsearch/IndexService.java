@@ -663,10 +663,10 @@ public abstract class IndexService {
         //IndicesAdminClient indices = admin.indices();
         //IndicesExistsRequestBuilder indicesExistsRequestBuilder = indices.prepareExists(indexName);
         //IndicesExistsResponse response = indicesExistsRequestBuilder.execute().actionGet();
-        RestHighLevelClient client = IndexClient.client;
-        IndicesClient indicesClient = client.indices();
+        //RestHighLevelClient client = IndexClient.client;
+        //IndicesClient indicesClient = client.indices();
         GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
-        return indicesClient.exists(getIndexRequest, RequestOptions.DEFAULT);
+        return IndexClient.client.indices().exists(getIndexRequest, RequestOptions.DEFAULT);
         //return response.isExists();
     }
 
