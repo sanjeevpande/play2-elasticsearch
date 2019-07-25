@@ -13,7 +13,6 @@ libraryDependencies ++= Seq(
   "org.elasticsearch" % "elasticsearch" % "7.2.0",
   "org.codehaus.groovy" % "groovy-all" % "2.3.8",
   "org.apache.commons" % "commons-lang3" % "3.1",
-  "org.apache.storm" % "storm-elasticsearch" % "2.0.0",
   "org.elasticsearch.client" % "elasticsearch-rest-client" % "7.2.0",
   "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "7.2.0"
 )
