@@ -1,5 +1,5 @@
-activator clean-all
-activator reload
-activator test
-activator compile
-activator publish-local
+play clean-all
+play reload
+play test
+play compile
+play publish-local

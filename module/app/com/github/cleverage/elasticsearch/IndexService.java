@@ -132,7 +132,21 @@ public abstract class IndexService {
      * @return
      */
     public static F.Promise<IndexResponse> indexAsync(IndexQueryPath indexPath, String id, Index indexable) {
-        IndexRequest request = new IndexRequest(indexPath.index, id);
+
+        //Promise subsitude code starts
+        //======
+//        IndexRequest request = new IndexRequest(indexPath.index, id);
+//        request.source(indexable.toIndex());
+//        PlainActionFuture<IndexResponse> future = new PlainActionFuture<>();
+//        IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, future);
+//        IndexResponse response = future.actionGet();
+//        return response;
+
+        //=======
+        //Promise subsitude code ends
+
+        IndexRequest request = new IndexRequest(indexPath.index);
+        request.source(indexable.toIndex());
         F.Promise<IndexResponse> f = null;
         IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, new ActionListener<IndexResponse>() {
             @Override
