@@ -1,13 +1,16 @@
 package com.github.cleverage.elasticsearch;
 
 import org.apache.commons.lang3.Validate;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AbstractAggregationBuilder;
 import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -174,7 +177,7 @@ public class IndexQuery<T extends Index> {
      * @param indexQueryPath
      * @return
      */
-    public IndexResults<T> fetch(IndexQueryPath indexQueryPath){
+    public IndexResults<T> fetch(IndexQueryPath indexQueryPath) {
         return fetch(indexQueryPath, null);
     }
 
@@ -186,9 +189,26 @@ public class IndexQuery<T extends Index> {
      */
     public IndexResults<T> fetch(IndexQueryPath indexQueryPath, QueryBuilder filter) {
 
+        SearchRequest searchRequest = new SearchRequest(indexQueryPath.index);
+
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(filter);
+
+        searchRequest.source(searchSourceBuilder);
+
+        SearchResponse searchResponse = null;
+        try {
+            searchResponse = IndexClient.client.search(searchRequest, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        IndexResults<T> searchResults = toSearchResults(searchResponse);
+
+        return searchResults;
+
         /*SearchRequestBuilder request = getSearchRequestBuilder(indexQueryPath, filter);
         return executeSearchRequest(request);*/
-        return null;
     }
 
     /**
@@ -332,6 +352,8 @@ public class IndexQuery<T extends Index> {
 
             results.add(t);
         }
+
+        Logger.info("ElasticSearch : ES Results -> "+ results.toString());
 
         if(Logger.isDebugEnabled()) {
             Logger.debug("ElasticSearch : Results -> "+ results.toString());

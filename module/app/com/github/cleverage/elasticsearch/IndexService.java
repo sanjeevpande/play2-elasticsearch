@@ -1,6 +1,7 @@
 package com.github.cleverage.elasticsearch;
 
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
@@ -32,6 +33,7 @@ import org.elasticsearch.client.indices.PutMappingRequest;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.script.Script;
@@ -117,6 +119,7 @@ public abstract class IndexService {
                 .execute()
                 .actionGet();*/
         IndexRequest request = new IndexRequest(indexPath.index);
+        request.source(indexable.toIndex());
         IndexResponse indexResponse = IndexClient.client.index(request, RequestOptions.DEFAULT);
         if (Logger.isDebugEnabled()) {
             Logger.debug("ElasticSearch : Index : " + indexResponse.getIndex() + "/" + indexResponse.getType() + "/" + indexResponse.getId() + " from " + indexable.toString());
@@ -223,6 +226,13 @@ public abstract class IndexService {
      */
     public static BulkResponse indexBulk(IndexQueryPath indexPath, List<? extends Index> indexables) throws IOException {
         BulkRequest request = new BulkRequest(indexPath.index);
+
+        IndexRequest indexRequest = new IndexRequest(indexPath.index);
+        indexRequest.source(indexables, XContentType.JSON);
+
+        request.add(indexRequest);
+
+        //request.source(indexables.toIndex());
         BulkResponse response = IndexClient.client.bulk(request, RequestOptions.DEFAULT);
         return response;
         /*BulkRequestBuilder bulkRequestBuilder = getBulkRequestBuilder(indexPath, indexables);
@@ -237,6 +247,12 @@ public abstract class IndexService {
      */
     public static F.Promise<BulkResponse> indexBulkAsync(IndexQueryPath indexPath, List<? extends Index> indexables) {
         BulkRequest request = new BulkRequest(indexPath.index);
+
+        IndexRequest indexRequest = new IndexRequest(indexPath.index);
+        indexRequest.source(indexables, XContentType.JSON);
+
+        request.add(indexRequest);
+
         F.Promise<BulkResponse> f = null;
         IndexClient.client.bulkAsync(request, RequestOptions.DEFAULT, new ActionListener<BulkResponse>() {
             @Override
