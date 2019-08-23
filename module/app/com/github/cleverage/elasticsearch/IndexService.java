@@ -227,10 +227,11 @@ public abstract class IndexService {
     public static BulkResponse indexBulk(IndexQueryPath indexPath, List<? extends Index> indexables) throws IOException {
         BulkRequest request = new BulkRequest(indexPath.index);
 
-        IndexRequest indexRequest = new IndexRequest(indexPath.index);
-        indexRequest.source(indexables, XContentType.JSON);
-
-        request.add(indexRequest);
+        for(int i = 0; i < indexables.size(); i++) {
+            IndexRequest indexRequest = new IndexRequest(indexPath.index);
+            indexRequest.source(indexables.get(i).toIndex());
+            request.add(indexRequest);
+        }
 
         //request.source(indexables.toIndex());
         BulkResponse response = IndexClient.client.bulk(request, RequestOptions.DEFAULT);
@@ -248,10 +249,11 @@ public abstract class IndexService {
     public static F.Promise<BulkResponse> indexBulkAsync(IndexQueryPath indexPath, List<? extends Index> indexables) {
         BulkRequest request = new BulkRequest(indexPath.index);
 
-        IndexRequest indexRequest = new IndexRequest(indexPath.index);
-        indexRequest.source(indexables, XContentType.JSON);
-
-        request.add(indexRequest);
+        for(int i = 0; i < indexables.size(); i++) {
+            IndexRequest indexRequest = new IndexRequest(indexPath.index);
+            indexRequest.source(indexables.get(i).toIndex());
+            request.add(indexRequest);
+        }
 
         F.Promise<BulkResponse> f = null;
         IndexClient.client.bulkAsync(request, RequestOptions.DEFAULT, new ActionListener<BulkResponse>() {
