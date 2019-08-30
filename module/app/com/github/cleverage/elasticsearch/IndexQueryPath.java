@@ -14,14 +14,18 @@ public class IndexQueryPath {
     public String index;
     public String type;
 
-    public IndexQueryPath(String type) {
+    /*public IndexQueryPath(String type) {
         this.index = IndexService.INDEX_DEFAULT;
         this.type = type;
-    }
+    }*/
 
     public IndexQueryPath(String index, String type) {
         this.index = index;
         this.type = type;
+    }
+
+    public IndexQueryPath(String index) {
+        this.index = index;
     }
 
     @Override

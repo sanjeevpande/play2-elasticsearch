@@ -1,5 +1,6 @@
 package com.github.cleverage.elasticsearch;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -60,6 +61,10 @@ public class IndexQuery<T extends Index> {
         this.builder = builder;
 
         return this;
+    }
+
+    public QueryBuilder getQueryBuilder() {
+        return this.builder;
     }
 
     public void setQuery(String query) {
@@ -192,10 +197,37 @@ public class IndexQuery<T extends Index> {
         SearchRequest searchRequest = new SearchRequest(indexQueryPath.index);
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(filter);
+        if(null != filter) {
+            searchSourceBuilder.query(filter);
+        }else {
+            searchSourceBuilder.query();
+        }
 
+        searchRequest.indices("_all");
+       /* // Sorting
+        for (SortBuilder sort : sorts) {
+            searchSourceBuilder.sort(sort);
+        }*/
+
+        // Paging
+        if (from > -1) {
+            searchSourceBuilder.from(from);
+        }
+        if (size > -1) {
+            searchSourceBuilder.size(size);
+        }
+
+
+        if (IndexClient.config.showRequest) {
+            if (StringUtils.isNotBlank(query)) {
+                Logger.info("ElasticSearch : Query -> " + query);
+            }
+            else
+            {
+                Logger.info("ElasticSearch : Query -> "+ filter.toString());
+            }
+        }
         searchRequest.source(searchSourceBuilder);
-
         SearchResponse searchResponse = null;
         try {
             searchResponse = IndexClient.client.search(searchRequest, RequestOptions.DEFAULT);
@@ -260,10 +292,10 @@ public class IndexQuery<T extends Index> {
 
         /*SearchRequest searchRequest = new SearchRequest(indexQueryPath.index);
         searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
-        IndexClient.client.search(searchRequest, RequestOptions.DEFAULT);*/
+        IndexClient.client.search(searchRequest, RequestOptions.DEFAULT);
 
         // Build request
-        /*SearchRequestBuilder request = IndexClient.client
+        SearchRequestBuilder request = IndexClient.client
                 .prepareSearch(indexQueryPath.index)
                 .setTypes(indexQueryPath.type)
                 .setSearchType(SearchType.QUERY_THEN_FETCH)
