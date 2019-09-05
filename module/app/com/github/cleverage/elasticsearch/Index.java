@@ -81,7 +81,7 @@ public abstract class Index implements Indexable {
      * @return
      * @throws Exception
      */
-    public F.Promise<IndexResponse> indexAsync() {
+    public IndexResponse indexAsync() {
         return IndexService.indexAsync(getIndexPath(), id, this);
     }
 
@@ -90,7 +90,7 @@ public abstract class Index implements Indexable {
      * @return
      * @throws Exception
      */
-    public F.Promise<IndexResponse> indexAsync(String indexName) {
+    public IndexResponse indexAsync(String indexName) {
         return IndexService.indexAsync(getIndexPath(indexName), id, this);
     }
 

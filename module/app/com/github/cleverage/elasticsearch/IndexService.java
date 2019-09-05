@@ -34,6 +34,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.elasticsearch.action.support.PlainActionFuture;
+
 
 public abstract class IndexService {
 
@@ -119,35 +121,35 @@ public abstract class IndexService {
      * @param indexable
      * @return
      */
-    public static F.Promise<IndexResponse> indexAsync(IndexQueryPath indexPath, String id, Index indexable) {
+    public static IndexResponse indexAsync(IndexQueryPath indexPath, String id, Index indexable) {
 
         //Promise subsitude code starts
         //======
-//        IndexRequest request = new IndexRequest(indexPath.index, id);
-//        request.source(indexable.toIndex());
-//        PlainActionFuture<IndexResponse> future = new PlainActionFuture<>();
-//        IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, future);
-//        IndexResponse response = future.actionGet();
-//        return response;
+        IndexRequest request = new IndexRequest(indexPath.index);
+        request.source(indexable.toIndex());
+        PlainActionFuture<IndexResponse> future = new PlainActionFuture<>();
+        IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, future);
+        IndexResponse response = future.actionGet();
+        return response;
 
         //=======
         //Promise subsitude code ends
 
-        IndexRequest request = new IndexRequest(indexPath.index);
-        request.source(indexable.toIndex());
-        F.Promise<IndexResponse> f = null;
-        IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, new ActionListener<IndexResponse>() {
-            @Override
-            public void onResponse(IndexResponse indexResponse) {
-                f.onRedeem((F.Callback<IndexResponse>) indexResponse);
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                f.onFailure((F.Callback<Throwable>) e.getCause());
-            }
-        });
-        return f;
+//        IndexRequest request = new IndexRequest(indexPath.index);
+//        request.source(indexable.toIndex());
+//        F.Promise<IndexResponse> f = null;
+//        IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, new ActionListener<IndexResponse>() {
+//            @Override
+//            public void onResponse(IndexResponse indexResponse) {
+//                f.onRedeem((F.Callback<IndexResponse>) indexResponse);
+//            }
+//
+//            @Override
+//            public void onFailure(Exception e) {
+//                f.onFailure((F.Callback<Throwable>) e.getCause());
+//            }
+//        });
+//        return f;
         //return indexAsync(getIndexRequestBuilder(indexPath, id, indexable));
     }
 
