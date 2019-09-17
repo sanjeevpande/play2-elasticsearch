@@ -106,6 +106,7 @@ public abstract class IndexService {
                 .execute()
                 .actionGet();*/
         IndexRequest request = new IndexRequest(indexPath.index);
+        request.id(id);
         request.source(indexable.toIndex());
         IndexResponse indexResponse = IndexClient.client.index(request, RequestOptions.DEFAULT);
         if (Logger.isDebugEnabled()) {
@@ -126,6 +127,7 @@ public abstract class IndexService {
         //Promise subsitude code starts
         //======
         IndexRequest request = new IndexRequest(indexPath.index);
+        request.id(id);
         request.source(indexable.toIndex());
         PlainActionFuture<IndexResponse> future = new PlainActionFuture<>();
         IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, future);
