@@ -219,6 +219,7 @@ public abstract class IndexService {
         for(int i = 0; i < indexables.size(); i++) {
             IndexRequest indexRequest = new IndexRequest(indexPath.index);
             indexRequest.source(indexables.get(i).toIndex());
+            indexRequest.id(indexables.get(i).id);
             request.add(indexRequest);
         }
 
@@ -241,6 +242,7 @@ public abstract class IndexService {
         for(int i = 0; i < indexables.size(); i++) {
             IndexRequest indexRequest = new IndexRequest(indexPath.index);
             indexRequest.source(indexables.get(i).toIndex());
+            indexRequest.id(indexables.get(i).id);
             request.add(indexRequest);
         }
 
@@ -343,6 +345,7 @@ public abstract class IndexService {
                 .execute()
                 .actionGet();*/
         UpdateRequest request = new UpdateRequest(indexPath.index, id);
+        request.id(id);
         UpdateResponse response = IndexClient.client.update(request, RequestOptions.DEFAULT);
         return  response;
     }
@@ -361,6 +364,7 @@ public abstract class IndexService {
                                                         String updateScript, ScriptType scriptType,
                                                         String lang) {
         UpdateRequest request = new UpdateRequest(indexPath.index, id);
+        request.id(id);
         F.Promise<UpdateResponse> f = null;
         IndexClient.client.updateAsync(request, RequestOptions.DEFAULT,  new ActionListener<UpdateResponse>() {
             @Override
@@ -409,8 +413,26 @@ public abstract class IndexService {
      * @param indexPath
      * @return
      */
-    public static F.Promise<DeleteResponse> deleteAsync(IndexQueryPath indexPath, String id) {
+    public static DeleteResponse deleteAsync(IndexQueryPath indexPath, String id) {
+
         DeleteRequest request = new DeleteRequest(indexPath.index, id);
+        request.id(id);
+        PlainActionFuture<DeleteResponse> future = new PlainActionFuture<>();
+        IndexClient.client.deleteAsync(request, RequestOptions.DEFAULT, future);
+        DeleteResponse response = future.actionGet();
+        return response;
+    }
+
+    /**
+     * Delete index
+     * @param indexPath
+     * @param id
+     * @return
+     */
+    public static F.Promise<DeleteResponse> deleteAsyncPromise(IndexQueryPath indexPath, String id) {
+        DeleteRequest request = new DeleteRequest(indexPath.index, id);
+        request.id(id);
+
         F.Promise<DeleteResponse> f = null;
         IndexClient.client.deleteAsync(request, RequestOptions.DEFAULT, new ActionListener<DeleteResponse>() {
             @Override
@@ -424,7 +446,6 @@ public abstract class IndexService {
             }
         });
         return f;
-        //return AsyncUtils.executeAsyncJava(getDeleteRequestBuilder(indexPath, id));
     }
 
     /**

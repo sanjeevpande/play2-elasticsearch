@@ -133,8 +133,17 @@ public abstract class Index implements Indexable {
      * @return
      * @throws Exception
      */
-    public F.Promise<DeleteResponse> deleteAsync() {
+    public DeleteResponse deleteAsync() {
         return IndexService.deleteAsync(getIndexPath(), id);
+    }
+
+    /**
+     * Delete this Document asynchronously
+     * @return
+     * @throws Exception
+     */
+    public F.Promise<DeleteResponse> deleteAsyncPromise() {
+        return IndexService.deleteAsyncPromise(getIndexPath(), id);
     }
 
     /**
@@ -142,7 +151,7 @@ public abstract class Index implements Indexable {
      * @return
      * @throws Exception
      */
-    public F.Promise<DeleteResponse> deleteAsync(String indexName) {
+    public DeleteResponse deleteAsync(String indexName) {
         return IndexService.deleteAsync(getIndexPath(indexName), id);
     }
 
