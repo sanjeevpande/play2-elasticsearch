@@ -204,10 +204,10 @@ public class IndexQuery<T extends Index> {
         }
 
         searchRequest.indices("_all");
-       /* // Sorting
+        // Sorting
         for (SortBuilder sort : sorts) {
             searchSourceBuilder.sort(sort);
-        }*/
+        }
 
         // Paging
         if (from > -1) {
