@@ -236,7 +236,7 @@ public abstract class IndexService {
      * @param indexables
      * @return
      */
-    public static F.Promise<BulkResponse> indexBulkAsync(IndexQueryPath indexPath, List<? extends Index> indexables) {
+    public static BulkResponse indexBulkAsync(IndexQueryPath indexPath, List<? extends Index> indexables) {
         BulkRequest request = new BulkRequest(indexPath.index);
 
         for(int i = 0; i < indexables.size(); i++) {
@@ -246,7 +246,12 @@ public abstract class IndexService {
             request.add(indexRequest);
         }
 
-        F.Promise<BulkResponse> f = null;
+        PlainActionFuture<BulkResponse> future = new PlainActionFuture<>();
+        IndexClient.client.bulkAsync(request, RequestOptions.DEFAULT, future);
+        BulkResponse response = future.actionGet();
+        return response;
+
+        /*F.Promise<BulkResponse> f = null;
         IndexClient.client.bulkAsync(request, RequestOptions.DEFAULT, new ActionListener<BulkResponse>() {
             @Override
             public void onResponse(BulkResponse bulkResponse) {
@@ -258,7 +263,7 @@ public abstract class IndexService {
                 f.onFailure((F.Callback<Throwable>) e.getCause());
             }
         });
-        return f;
+        return f;*/
         //return AsyncUtils.executeAsyncJava(getBulkRequestBuilder(indexPath, indexables));
     }
 

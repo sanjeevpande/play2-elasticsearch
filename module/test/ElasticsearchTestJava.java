@@ -149,12 +149,16 @@ public class ElasticsearchTestJava {
                 Index1Type1 index1Type1Bis = new Index1Type1("2", "name2", "category", new Date(),location);
                 Index1Type1 index1Type1Ter = new Index1Type1("3", "name3", "category", new Date(),location);
 
-                F.Promise<BulkResponse> promise = IndexService.indexBulkAsync(
+                /*F.Promise<BulkResponse> promise = IndexService.indexBulkAsync(
+                        index1Type1.getIndexPath(),
+                        Arrays.asList(index1Type1, index1Type1Bis, index1Type1Ter)
+                );*/
+
+                BulkResponse response = IndexService.indexBulkAsync(
                         index1Type1.getIndexPath(),
                         Arrays.asList(index1Type1, index1Type1Bis, index1Type1Ter)
                 );
-
-                BulkResponse response = promise.get(10L, TimeUnit.SECONDS);
+                //BulkResponse response = promise.get(10L, TimeUnit.SECONDS);
                 assertThat(response.getItems().length).isEqualTo(3);
             }
         });
