@@ -1,7 +1,7 @@
 package com.github.cleverage.elasticsearch;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
@@ -14,27 +14,29 @@ import org.elasticsearch.action.get.*;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.support.PlainActionFuture;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateRequestBuilder;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Requests;
+import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.script.ScriptType;
 import play.Logger;
 import play.libs.F;
+import play.libs.Json;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
-import org.elasticsearch.action.support.PlainActionFuture;
 
 
 public abstract class IndexService {
@@ -129,6 +131,7 @@ public abstract class IndexService {
         IndexRequest request = new IndexRequest(indexPath.index);
         request.id(id);
         request.source(indexable.toIndex());
+        request.routing(indexPath.index);
         PlainActionFuture<IndexResponse> future = new PlainActionFuture<>();
         IndexClient.client.indexAsync(request, RequestOptions.DEFAULT, future);
         IndexResponse response = future.actionGet();
@@ -218,6 +221,7 @@ public abstract class IndexService {
 
         for(int i = 0; i < indexables.size(); i++) {
             IndexRequest indexRequest = new IndexRequest(indexPath.index);
+            indexRequest.routing(indexPath.index);
             indexRequest.source(indexables.get(i).toIndex());
             indexRequest.id(indexables.get(i).id);
             request.add(indexRequest);
@@ -242,6 +246,7 @@ public abstract class IndexService {
         for(int i = 0; i < indexables.size(); i++) {
             IndexRequest indexRequest = new IndexRequest(indexPath.index);
             indexRequest.source(indexables.get(i).toIndex());
+            indexRequest.routing(indexPath.index);
             indexRequest.id(indexables.get(i).id);
             request.add(indexRequest);
         }
@@ -351,6 +356,7 @@ public abstract class IndexService {
                 .actionGet();*/
         UpdateRequest request = new UpdateRequest(indexPath.index, id);
         request.id(id);
+        request.routing(indexPath.index);
         UpdateResponse response = IndexClient.client.update(request, RequestOptions.DEFAULT);
         return  response;
     }
@@ -422,6 +428,7 @@ public abstract class IndexService {
 
         DeleteRequest request = new DeleteRequest(indexPath.index, id);
         request.id(id);
+        request.routing(indexPath.index);
         PlainActionFuture<DeleteResponse> future = new PlainActionFuture<>();
         IndexClient.client.deleteAsync(request, RequestOptions.DEFAULT, future);
         DeleteResponse response = future.actionGet();
@@ -463,6 +470,7 @@ public abstract class IndexService {
                 .execute()
                 .actionGet();*/
         DeleteRequest request = new DeleteRequest(indexPath.index, id);
+        request.routing(indexPath.index);
         DeleteResponse deleteResponse = null;
         try {
             deleteResponse = IndexClient.client.delete(request, RequestOptions.DEFAULT);
@@ -723,7 +731,19 @@ public abstract class IndexService {
     public static void createIndex(String indexName) {
         Logger.debug("ElasticSearch : creating index [" + indexName + "]");
         try {
-            CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+           // CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+            //IndexClient.client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
+            CreateIndexRequest createIndexRequest= new CreateIndexRequest(indexName);
+            String esSetting = IndexClient.config.indexSettings.get(indexName);
+            JsonNode jsonNode = Json.parse(esSetting);
+            int numberOfShards = jsonNode.get("number_of_shards").asInt();
+            int numberOfReplicas = jsonNode.get("number_of_replicas").asInt();
+
+            createIndexRequest.settings(Settings.builder()
+                    .put("index.number_of_shards", numberOfShards)
+                    .put("index.number_of_replicas", numberOfReplicas)
+            );
+
             IndexClient.client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
             /*CreateIndexRequestBuilder creator = IndexClient.client.admin().indices().prepareCreate(indexName);
             String setting = IndexClient.config.indexSettings.get(indexName);
@@ -731,6 +751,8 @@ public abstract class IndexService {
                 creator.setSettings(setting);
             }
             creator.execute().actionGet();*/
+
+
         } catch (Exception e) {
             Logger.error("ElasticSearch : Index create error : " + e.toString());
         }
