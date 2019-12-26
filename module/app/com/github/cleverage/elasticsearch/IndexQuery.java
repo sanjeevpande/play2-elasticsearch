@@ -196,6 +196,10 @@ public class IndexQuery<T extends Index> {
 
         SearchRequest searchRequest = new SearchRequest(indexQueryPath.index);
 
+        if(StringUtils.isNotBlank(indexQueryPath.index)) {
+            searchRequest.routing(indexQueryPath.index);
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         if(null != filter) {
             searchSourceBuilder.query(filter);
